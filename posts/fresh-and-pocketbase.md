@@ -46,3 +46,56 @@ What's the benefit of this? Well it's supoer _easy_ managing a single server is 
 
 One final benefit of PocketBase or more accurately SQLite as a database solution is it allows the use of [Litestream](https://litestream.io/) as a database backup solution, this makes database backups fast, easy, and above all else cheap.
 
+### So now that we've got the tools how do we make them play nice? 🤔
+
+Arguably the hardest part of working with fresh and PocketBase is authentication, fortunately PocketBase include some SSR tips as part of their [SDK documentation](https://github.com/pocketbase/js-sdk#ssr-integration).
+
+Now while they don't cover fresh explicitly it is pretty easy to work from their [SvelteKit](https://kit.svelte.dev/) example.
+
+```ts
+import { MiddlewareHandlerContext } from "$fresh/server.ts";
+import PocketBase from "https://esm.sh/pocketbase@0.9.0"
+
+export type MiddlewareState = Record<'pb', PocketBase>
+
+export async function handler(
+  req: Request,
+  ctx: MiddlewareHandlerContext<MiddlewareState>,
+) {
+  // @NOTE
+  // - Similar to recommended SvelteKit implementation
+  // - https://github.com/pocketbase/js-sdk#ssr-integration
+  ctx.state.pb = new PocketBase("https://api.coffeeandcode.app");
+  ctx.state.pb.authStore.loadFromCookie(req.headers.get('cookie') || '');
+
+  try {
+    if (ctx.state.pb.authStore.isValid) {
+      await ctx.state.pb.collection('users').authRefresh();
+    }
+  } catch (_) {
+    ctx.state.pb.authStore.clear();
+  }
+
+  // @NOTE
+  // - Cannot mutate headers directly
+  // - https://github.com/satyarohith/sift/issues/29
+  const resp = await ctx.next();
+  const headers = new Headers(resp.headers);
+
+  // @TODO
+  // - Use cookies methods from the deno `std` lib
+  headers.append('set-cookie', ctx.state.pb.authStore.exportToCookie());
+
+  return new Response(resp.body, { ...resp, headers });
+}
+```
+
+This works if you want to perform auth as part of each server render and do things like redirect the user if the aren't authenticated etc...
+
+It is worth noting that if you want to use a shared `authStore` between the client and the server you will need to set [`httpOnly: false` in `exportToCookie`](https://github.com/pocketbase/js-sdk/issues/69).
+
+Unless I really need server side authentication I tend to use PocketBase primarily on the client for things like authentication, however if you have public collections i.e `products` and they have no authentication requirements there is nothing stopping you from using a PocketBase instance server side to fetch and display these to improve page speeds.
+
+There is really no _best_ answer just different compromises that come with different pros and cons, whatever the case though it pays to make sure you have a firm understanding of what is processed on the server and what is procesed on the client.
+
+
