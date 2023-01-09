@@ -46,13 +46,14 @@ What's the benefit of this? Well it's supoer _easy_ managing a single server is 
 
 One final benefit of PocketBase or more accurately SQLite as a database solution is it allows the use of [Litestream](https://litestream.io/) as a database backup solution, this makes database backups fast, easy, and above all else cheap.
 
-### So now that we've got the tools how do we make them play nice? 🤔
+### Bringing the two together? 🤔
 
 Arguably the hardest part of working with fresh and PocketBase is authentication, fortunately PocketBase include some SSR tips as part of their [SDK documentation](https://github.com/pocketbase/js-sdk#ssr-integration).
 
 Now while they don't cover fresh explicitly it is pretty easy to work from their [SvelteKit](https://kit.svelte.dev/) example.
 
 ```ts
+// routes/_middleware.ts
 import { MiddlewareHandlerContext } from "$fresh/server.ts";
 import PocketBase from "https://esm.sh/pocketbase@0.9.0"
 
@@ -97,5 +98,21 @@ It is worth noting that if you want to use a shared `authStore` between the clie
 Unless I really need server side authentication I tend to use PocketBase primarily on the client for things like authentication, however if you have public collections i.e `products` and they have no authentication requirements there is nothing stopping you from using a PocketBase instance server side to fetch and display these to improve page speeds.
 
 There is really no _best_ answer just different compromises that come with different pros and cons, whatever the case though it pays to make sure you have a firm understanding of what is processed on the server and what is procesed on the client.
+
+### Working with Fresh 🍋
+
+Fresh ships with [Preact](https://preactjs.com/) which for the most part operates similar to React but does not include a virtual DOM.
+
+Fresh also ships with baked in support for [Signals](https://preactjs.com/guide/v10/signals/) which make handling global state an absolute breeze.
+
+One of the key caveats with fresh is understand it's `islands/` directory, only components in this folder will be hydrated in the client.
+
+That is to say that every other component in `routes/` or `components/` will be **server rendered only** and not ship any additional javascript to the client.
+
+The directory is named after the [islands archietecture](https://jasonformat.com/islands-architecture/) which was first coined by [Jason Miller](https://github.com/developit) who coincidentally was the original author of Preact.
+
+Islands archietecture describes modern web applications as being mostly static with _islands_ of interactivity, in other words hydrated components.
+
+Another new framework that has heavily bought into this pattern is [Astro](https://astro.build/) although they do away with the `islands/` directory in favour of unique props that can tell a component whether or not it should hydrate.
 
 
